@@ -1,0 +1,49 @@
+{
+  "version": "1.2.0",
+  "nota": "Enrutamiento y umbrales del bus. Versionado a propósito: cada decisión reactiva y cada lectura del bucle anotan la versión que la produjo, así que un cambio de regla nunca se confunde con un cambio del mundo.",
+  "enrutamiento": {
+    "orden": ["etiqueta", "prioridad", "espacio"],
+    "por_etiqueta": {
+      "resend": "monitor-correo",
+      "reputacion": "monitor-correo",
+      "rebote": "monitor-correo",
+      "dns": "dana",
+      "gate": "agente-auditor",
+      "evidencia": "agente-auditor",
+      "harness": "agente-auditor",
+      "arnes-sonda": "agente-auditor",
+      "versionado": "dana",
+      "cicd": "dana"
+    },
+    "por_prioridad": { "P0": "dana" },
+    "por_espacio": {
+      "sonda": "agente-auditor",
+      "nucleo": "agente-ejecutor",
+      "correo": "monitor-correo",
+      "northwind": "dana",
+      "mirador": "agente-ejecutor",
+      "abastos": "dana",
+      "personal": "dana"
+    },
+    "sin_regla": null
+  },
+  "escalado": {
+    "P0_sin_dueno_minutos": 15,
+    "P1_sin_dueno_horas": 8,
+    "etiqueta_urgencia": ["reputacion", "seguridad", "produccion"]
+  },
+  "umbrales": {
+    "nota": "Un umbral no se mueve para que algo pase. Cambiarlo es un cambio de instrumento: sube la versión, y la corrida siguiente anota la tabla de deriva.",
+    "sin_dueno_horas": 24,
+    "estancada_dias": 7,
+    "bloqueada_dias": 5,
+    "monitor_atraso_eventos": 500,
+    "monitor_mudo_horas": 48,
+    "fuente_muda_dias": 3,
+    "rebote_pct_piso": 8.0,
+    "queja_pct_piso": 1.0,
+    "outbox_pendiente_piso": 5000,
+    "sla_horas": { "P0": 4, "P1": 48, "P2": 336, "P3": null }
+  },
+  "ventana_dias": 14
+}

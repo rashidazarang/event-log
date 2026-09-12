@@ -1,0 +1,12 @@
+events.db
+events.db-wal
+events.db-shm
+dist/
+.vercel
+.vercel-guardado/
+__pycache__/
+*.pyc
+.env
+*.token
+evidencia/*.jsonl
+.DS_Store
