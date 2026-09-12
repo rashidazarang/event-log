@@ -15,6 +15,10 @@ Este repositorio es una implementación de referencia de esa idea, completa y
 ejecutable: librería estándar de Python, SQLite, JavaScript plano. Sin
 dependencias, sin build, sin framework.
 
+**Demostración en vivo: [event-log-demo.vercel.app](https://event-log-demo.vercel.app)**
+— es el servidor de este repositorio corriendo como función; escribir funciona de
+verdad y el estado se recicla con la instancia.
+
 ---
 
 ## Qué cambia cuando el log manda
