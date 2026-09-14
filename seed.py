@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """
-Siembra Event Log con un estado de demostración plausible y determinista.
+Siembra Event Log con un tablero de demostración plausible y determinista.
 
 Nada aquí es aleatorio: todo sale de un SHA1 de la identidad del objeto, así que
-la misma siembra produce el mismo tablero en cualquier máquina. Los espacios,
-las personas y los dominios de correo son los reales del ecosistema; el
-contenido de los tickets y el tráfico de correo son de demostración.
+la misma siembra produce el mismo tablero en cualquier máquina.
+
+Nada aquí es real tampoco. Las empresas, las personas, los dominios y los
+incidentes son inventados. Existen para enseñar la forma del sistema: una
+entrada que nace en el intake y camina hasta cerrada, una señal que abre trabajo
+sin que nadie la pida, un monitor que se inscribe con capacidades y arrendamiento.
+
+Para usarlo con lo tuyo, este archivo es el único que hay que tocar.
 """
 import hashlib, json, os, random, sqlite3, sys, datetime as dt
 import core
@@ -67,94 +72,101 @@ ACTORS = [
 ]
 
 TICKETS = [
-    ("northwind", "Confirmar con el proveedor de telefonía los identificadores de cola",
-     "Hoy resolvemos la cola por nombre. Necesitamos el identificador estable de cada una y el "
-     "contrato de reintento cuando está saturada.\n\nSin eso, cualquier cambio de nombre del "
-     "lado de ellos nos rompe la transferencia en silencio.", "bloqueado", "P1",
-     "lider-tablero", "dana", ["telefonia", "transferencia"],
+    ("northwind", "El proveedor de pagos no manda el folio de conciliación en el webhook",
+     "Conciliamos por monto y fecha, que empata mal en cuanto hay dos cobros iguales el mismo "
+     "día.\n\nPedimos el folio dentro del cuerpo del webhook. Sin él la conciliación es "
+     "manual, y lo manual no escala a temporada alta.", "bloqueado", "P1",
+     "lider-tablero", "dana", ["pagos", "conciliacion"],
      [{"tipo": "externo", "valor": "NW-718"}],
      {"ticket_externo": "NW-718", "banda": "UAT", "marca": "NORTE"},
-     "el proveedor de telefonía, vía su gerente de cuenta", 6),
-    ("northwind", "El linaje de etiquetas se detuvo en v0.6.5 mientras los releases llegaron a v0.7.9",
-     "El manifiesto resuelve la etiqueta caminando a la alcanzable más cercana, así que doce "
-     "releases declaran una versión que no es la suya.\n\nLos digests siguen correctos: la capa "
-     "de contenido aguanta, la etiqueta miente.", "en curso", "P1", "dana", "lider-tablero",
-     ["versionado", "release"], [{"tipo": "externo", "valor": "NW-561"}],
+     "el proveedor de pagos, vía su gerente de cuenta", 6),
+    ("northwind", "El alta de pedidos acepta un reintento como pedido nuevo",
+     "La tienda reintenta cuando su red falla, y cada reintento crea un pedido. Tres duplicados "
+     "llegaron a PROD esta semana.\n\nFalta clave de idempotencia: la misma clave debe "
+     "devolver el mismo folio, no fabricar otro.", "en curso", "P1", "dana", "lider-tablero",
+     ["pedidos", "idempotencia"], [{"tipo": "externo", "valor": "NW-561"}],
      {"ticket_externo": "NW-561", "banda": "PROD"}, None, 12),
-    ("northwind", "Un repo sin políticas de rama acepta merges a la principal sin build",
-     "El bloque de PR del YAML no crea validación; la política de rama sí. El repo se ve bien "
-     "configurado y no lo está.", "entrante", "P2", None, "dana", ["cicd", "riesgo"],
-     [{"tipo": "externo", "valor": "NW-576"}], {"ticket_externo": "NW-576"}, None, 9),
-    ("mirador", "El webhook de respuestas entrantes sigue en fase 2",
-     "Las respuestas al dominio de salida no tienen destino: enviamos y nadie ve lo que "
-     "contestan. Falta el receptor y la regla de reenvío al buzón humano.", "aceptado", "P1",
-     "agente-ejecutor", "dana", ["correo", "webhook", "salida"],
-     [{"tipo": "url", "valor": "https://correo.mirador.mx"}],
-     {"cuenta": "Mirador", "canal": "correo"}, None, 4),
-    ("mirador", "El enriquecimiento firmográfico es el próximo cuello del motor",
-     "El puntaje ya distingue cuentas activas de dormidas, pero sin tamaño ni giro las listas se "
-     "ordenan por señales débiles.", "entrante", "P2", None, "dana",
-     ["enriquecimiento", "datos"], [], {"cuenta": "Mirador", "canal": "mapa"}, None, 15),
-    ("abastos", "El emparejador no adivina: grado y envase quedan obligatorios",
-     "Un pedido sin grado hacía que el emparejador eligiera el más barato, y eso ya costó una "
-     "cotización mal armada.\n\nLa alerta del intake vivía dentro de lo que protegía.",
-     "cerrado", "P1", "dana", "dana", ["catalogo", "emparejador"], [],
-     {"cotizacion": "AB-2026-0412", "grado": "obligatorio"}, None, 21),
-    ("sonda", "Un verde filtrado nunca es un verde de suite",
-     "Cinco demostraciones esta semana: la suite completa es el único instrumento para la ruptura "
-     "fuera del filtro. Un filtro que no casa con nada reporta verde.", "en revision", "P0",
-     "agente-auditor", "agente-ejecutor", ["evidencia", "gate"],
-     [{"tipo": "commit", "valor": "3b105dc"}], {"item": 113, "paquete": "202609110000"}, None, 1),
-    ("sonda", "Las filas registran lo que adquirieron, no lo que se infiere del tamaño",
-     "El rendimiento se lee de la fila, no se deriva del peso del paquete.", "cerrado", "P2",
-     "agente-ejecutor", "agente-auditor", ["arnes", "medicion"], [], {"item": 109}, None, 3),
-    ("nucleo", "El manifiesto necesita una ruta, no un nombre suelto",
-     "Un binario con nombre pelado sólo resuelve por PATH, y el demonio cachea el manifiesto: hay "
-     "que recargar por el supervisor, no existe operación de recarga.", "en curso", "P2",
-     "agente-ejecutor", "dana", ["demonio", "manifiesto"], [], {"superficie": "runtime"}, None, 7),
-    ("correo", "Bajar el TTL de los MX antes de mover el dominio",
-     "El proveedor tiene el control del DNS. Con TTL de cuatro horas, cualquier corrección tarda "
-     "media jornada en propagarse.", "bloqueado", "P1", "proveedor-dns", "dana",
-     ["dns", "proveedor-dns"], [], {"dominio": "correo.mirador.mx"}, "el proveedor de DNS", 2),
-    ("correo", "Estamos en el tope de dominios del proveedor de envío",
-     "El alta responde 403. Liberar un slot no alcanza: se pierde el dominio al probarlo. Los "
-     "demás siguen vivos.", "en revision", "P1", "dana", "dana", ["correo", "limite"], [],
-     {"dominio": "*"}, None, 5),
-    ("personal", "Decidir si el tablero de demostración se queda o se archiva",
-     "Cumplió su propósito de mostrar el punto. Decidir si se vuelve producto.", "entrante",
-     "P3", "dana", "dana", ["decision"], [], {}, None, 0),
+    ("northwind", "El inventario de SUR se sincroniza cada hora y la tienda promete minutos",
+     "No es un defecto del sincronizador: es una promesa que la interfaz hace y el sistema "
+     "nunca hizo. O baja la ventana, o cambia el texto.", "entrante", "P2", None, "dana",
+     ["inventario", "expectativa"], [{"tipo": "externo", "valor": "NW-576"}],
+     {"ticket_externo": "NW-576"}, None, 9),
+    ("mirador", "Las fichas sin foto se ordenan igual que las completas",
+     "El orden pesa cercanía y calificación, y trata una ficha a medio llenar como una "
+     "completa. Premia a quien no llenó nada.\n\nVa un factor de completitud en el orden, no "
+     "un filtro: esconderlas deja fuera a los que acaban de entrar.", "aceptado", "P1",
+     "agente-ejecutor", "dana", ["busqueda", "orden"],
+     [{"tipo": "url", "valor": "https://mirador.mx/directorio"}],
+     {"cuenta": "Mirador", "canal": "directorio"}, None, 4),
+    ("mirador", "La búsqueda por colonia no normaliza acentos",
+     "«García» y «Garcia» devuelven listas distintas porque el índice guarda lo que se "
+     "escribió, no su forma plegada.", "entrante", "P2", None, "dana",
+     ["busqueda", "datos"], [], {"cuenta": "Mirador", "canal": "mapa"}, None, 15),
+    ("abastos", "El catálogo aceptó dos unidades de medida para el mismo artículo",
+     "Un artículo entró en cajas y en piezas, y el comparador sumó las dos como si fueran la "
+     "misma cosa. La cotización salió con el triple del volumen.\n\nLa unidad ahora es parte "
+     "de la clave del artículo, no un atributo suyo.", "cerrado", "P1", "dana", "dana",
+     ["catalogo", "unidades"], [], {"cotizacion": "AB-2026-0118", "grado": "estándar"}, None, 21),
+    ("sonda", "La exportación pierde filas cuando el lote pasa de una página",
+     "El exportador pide la primera página y escribe; nunca pide la segunda. Un lote de 120 "
+     "salió con 100 filas y sin un solo error.\n\nPasó en pruebas porque ninguna fixture "
+     "llegaba a cien.", "en revision", "P0",
+     "agente-auditor", "agente-ejecutor", ["exportacion", "paginacion"],
+     [{"tipo": "commit", "valor": "a41c7e9"}], {"item": 42, "paquete": "202609080900"}, None, 1),
+    ("sonda", "El contador de reintentos se reiniciaba en cada arranque",
+     "El contador vivía en memoria, así que un reinicio devolvía los intentos a cero y el mismo "
+     "trabajo se reintentaba para siempre.\n\nAhora el intento se anota en la fila, que es lo "
+     "único que sobrevive al proceso.", "cerrado", "P2",
+     "agente-ejecutor", "agente-auditor", ["reintentos", "estado"], [], {"item": 39}, None, 3),
+    ("nucleo", "El despliegue no espera a que termine la migración",
+     "El proceso nuevo arranca mientras la migración corre, lee una tabla a medio cambiar y se "
+     "cae en el primer request.\n\nLa migración es un paso con su propia salida, no un hilo "
+     "al lado del arranque.", "en curso", "P2",
+     "agente-ejecutor", "dana", ["despliegue", "migracion"], [], {"superficie": "runtime"}, None, 7),
+    ("correo", "El proveedor de DNS no delega el subdominio de envío",
+     "Pedimos delegar `envio.` para mover sus registros sin tocar la zona principal. Sin la "
+     "delegación cada cambio pasa por ellos y tarda una jornada.", "bloqueado", "P1",
+     "proveedor-dns", "dana", ["dns", "delegacion"], [],
+     {"dominio": "correo.mirador.mx"}, "el proveedor de DNS", 2),
+    ("correo", "Las autorrespuestas cuentan como respuesta y ensucian la tasa",
+     "«Estoy de vacaciones» entra por el mismo webhook que una respuesta real. La tasa subió "
+     "nueve puntos en una semana sin que nadie contestara nada.\n\nHay encabezados que lo "
+     "declaran; el normalizador todavía no los lee.", "en revision", "P1", "dana", "dana",
+     ["correo", "metricas"], [], {"dominio": "*"}, None, 5),
+    ("personal", "Elegir el formato del reporte de los lunes",
+     "Tres párrafos y una lista de decisiones, o una tabla. Decidirlo una vez y dejar de "
+     "improvisarlo cada semana.", "entrante", "P3", "dana", "dana", ["decision"], [], {}, None, 0),
 ]
 
 NOTAS = [
-    ("northwind", "Orden de autoridad cuando dos instrucciones se contradicen",
-     "Fijado en la auditoría de julio y aquí sólo se restablece:\n\n"
-     "1. el contrato del workspace padre\n2. las instrucciones del repo hijo más cercano\n"
-     "3. los documentos canónicos\n4. el código, ADRs, pruebas y logs del repo dueño\n"
-     "5. el gestor de tickets\n6. las notas\n\n"
-     "Consecuencia práctica: cuando una guía general diga una cosa y el documento de versionado "
-     "del hijo diga otra, manda el hijo. Así se resolvió la guía retractada de julio, que "
-     "sobrevivió tres semanas en el resumen después de corregirse en el original.",
-     ["autoridad", "proceso"], {"ticket_externo": "NW-575"}, 24),
-    ("correo", "Los patrones de dirección en el mercado local",
-     "48% `inicialapellido` más 42% `nombre.apellido` cubren el 90% del mercado con dos "
-     "candidatos.\n\nEl rastreo mide lo publicado, no lo existente: la ausencia de un patrón en "
-     "la web no dice que la dirección no exista.", ["patrones", "medicion"], {}, 30),
-    ("correo", "Enrolar un dominio de cliente: el contrato de cuatro archivos",
-     "El cuarto archivo es silenciosamente inerte si se omite. La trampa del DNS detrás de un "
-     "proxy y la prueba de aceptación entrante son los dos pasos que nadie recuerda hasta que "
-     "fallan.", ["calentamiento", "runbook"], {"dominio": "*"}, 18),
-    ("sonda", "Toda afirmación lleva su tier",
-     "`[RE]` dirección · `[SRC]` archivo:línea · `[DERIVED]` razonado, debe una regresión · "
-     "`[MEASURED]` cita la lectura · `[UNVERIFIED]` una pista · `[FALSIFIED]` comprobado y falso, "
-     "anotado para que nadie lo vuelva a derivar.\n\nUna protección vale lo que su sitio de "
-     "llamada más angosto.", ["procedencia", "canon"], {}, 14),
-    ("nucleo", "Las gráficas SVG realimentan la altura de su contenedor",
-     "Si el SVG participa del flujo dentro de un contenedor flexible, su alto realimenta al "
-     "contenedor, el observador de tamaño vuelve a medir más grande y la gráfica crece sin fin. "
-     "Llegó a 1975px antes de que se notara.\n\nPosicionado absoluto y guarda de medición.",
-     ["frontend", "cicatriz"], {"superficie": "api"}, 0),
-    ("personal", "Simular antes de intentar, en tareas con costo por intento",
-     "Arnés de simulación sin costo, iterar en frío, y un solo intento real.", ["metodo"], {}, 40),
+    ("northwind", "Los tres ambientes no comparten datos, y es a propósito",
+     "QA se borra cada noche, UAT lleva el corte que el cliente aprobó, PROD es de ellos.\n\n"
+     "Copiar de PROD hacia abajo parece un atajo y arrastra direcciones reales al ambiente "
+     "donde todo el equipo tiene acceso. Cuando UAT necesita un caso, se construye el caso.",
+     ["ambientes", "convencion"], {"ticket_externo": "NW-575"}, 24),
+    ("correo", "Un rebote duro y uno suave no se atienden igual",
+     "El duro dice que la dirección no existe: se retira de la lista y no se reintenta. El "
+     "suave dice que hoy no se pudo — buzón lleno, servidor ocupado — y se reintenta con "
+     "espera.\n\nTratar un suave como duro tira contactos buenos. Tratar un duro como suave "
+     "quema la reputación del dominio, que tarda semanas en volver.",
+     ["correo", "runbook"], {}, 30),
+    ("correo", "Los tres registros que el proveedor pide antes de dejarte enviar",
+     "SPF autoriza quién envía, DKIM firma el mensaje, DMARC dice qué hacer cuando alguno "
+     "falla. Los tres viven en el DNS del dominio, no en el proveedor.\n\nDMARC en `p=none` "
+     "no protege: informa. Es el que se olvida, porque olvidarlo no rompe nada el primer día.",
+     ["dns", "correo"], {"dominio": "*"}, 18),
+    ("sonda", "El paquete se nombra por su contenido, no por su fecha",
+     "Dos paquetes con el mismo nombre y distinto contenido convierten cualquier comparación "
+     "en una discusión. El nombre sale del digest de lo que hay dentro.\n\nAsí dos máquinas "
+     "dicen «el mismo paquete» y significan lo mismo.", ["formato", "evidencia"], {}, 14),
+    ("nucleo", "Una migración corre una vez, y la tabla de aplicadas es quien lo decide",
+     "El nombre ordena; la tabla decide. Sin la tabla, un despliegue que reintenta vuelve a "
+     "correr la migración y duplica lo que ya insertó.\n\nUna migración que no se puede "
+     "correr dos veces sin daño no está terminada.",
+     ["migracion", "plataforma"], {"superficie": "runtime"}, 2),
+    ("personal", "Lo que se decide una vez no se decide cada semana",
+     "Cada decisión repetida es una decisión que no se escribió. Si vuelve por tercera vez, se "
+     "anota aquí y se cierra.", ["metodo"], {}, 40),
 ]
 
 FUENTES = [
@@ -165,8 +177,8 @@ FUENTES = [
       "responsable": "dana", "retencion": "crudo indefinido"},
      "svix", "resend", 0),
     ("arnes-sonda", "Arnés de Sonda", "generico", "sonda",
-     {"proposito": "Filas de medición del bucle de calidad. Una fila fallida abre entrada.",
-      "responsable": "agente-auditor", "contrato": "ledger.jsonl append-only"},
+     {"proposito": "Una fila por corrida de la suite de integración. Una corrida roja abre entrada.",
+      "responsable": "agente-auditor", "contrato": "registro append-only, una fila por corrida"},
      "hmac-sha256", "generico", 1),
     ("repos-nucleo", "Repositorios de Núcleo", "generico", "nucleo",
      {"proposito": "Push, PR y release de los repos de producto.",
